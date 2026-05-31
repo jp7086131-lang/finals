@@ -1,0 +1,195 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function userDoc(uid) {
+      return get(/databases/$(database)/documents/users/$(uid));
+    }
+
+    function role() {
+      return signedIn() && exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        ? userDoc(request.auth.uid).data.role
+        : null;
+    }
+
+    function isAdmin() {
+      return role() == 'admin';
+    }
+
+    function isRider() {
+      return role() == 'rider';
+    }
+
+    function isCustomer() {
+      return role() == 'customer';
+    }
+
+    function isOwner(uid) {
+      return signedIn() && request.auth.uid == uid;
+    }
+
+    match /users/{userId} {
+      allow create: if isOwner(userId)
+        && request.resource.data.role == 'customer'
+        && request.resource.data.keys().hasOnly([
+          'name',
+          'email',
+          'phone',
+          'address',
+          'role',
+          'isActive',
+          'isOnline',
+          'createdAt',
+          'lastSeen'
+        ]);
+
+      allow read: if isAdmin() || isOwner(userId);
+
+      allow update: if isOwner(userId)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'name',
+          'phone',
+          'address',
+          'photoURL',
+          'profileImage',
+          'documentUrl',
+          'vehicleType',
+          'plateNumber',
+          'licenseNumber',
+          'riderStatus',
+          'isAvailable',
+          'isOnline',
+          'currentLocation',
+          'lastSeen',
+          'updatedAt'
+        ]);
+
+      allow delete: if false;
+    }
+
+    match /orders/{orderId} {
+      allow read: if isAdmin()
+        || (isCustomer() && resource.data.customer == request.auth.uid)
+        || (isRider() && (
+          resource.data.rider == request.auth.uid
+          || resource.data.riderId == request.auth.uid
+          || resource.data.rider.id == request.auth.uid
+        ));
+
+      // Critical order writes go through the Express API using Firebase Admin SDK.
+      allow create, update, delete: if false;
+    }
+
+    match /payments/{paymentId} {
+      allow read: if isAdmin()
+        || (isCustomer() && resource.data.customer == request.auth.uid);
+
+      // Payment confirmation and proof upload go through the Express API.
+      allow create, update, delete: if false;
+    }
+
+    match /products/{productId} {
+      allow read: if isAdmin() || resource.data.isActive != false;
+      allow create, update, delete: if false;
+    }
+
+    match /categories/{categoryId} {
+      allow read: if isAdmin() || resource.data.isActive != false;
+      allow create, update, delete: if false;
+    }
+
+    match /notifications/{notificationId} {
+      allow read: if signedIn()
+        && (resource.data.receiverId == request.auth.uid || resource.data.uid == request.auth.uid);
+
+      allow update: if signedIn()
+        && (resource.data.receiverId == request.auth.uid || resource.data.uid == request.auth.uid)
+        && request.resource.data.receiverId == resource.data.receiverId
+        && request.resource.data.uid == resource.data.uid
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'isRead',
+          'read',
+          'readAt'
+        ]);
+
+      allow create: if false;
+      allow delete: if signedIn()
+        && (resource.data.receiverId == request.auth.uid || resource.data.uid == request.auth.uid);
+    }
+
+    match /deliveries/{deliveryId} {
+      allow read: if isAdmin()
+        || (isRider() && resource.data.riderId == request.auth.uid);
+
+      allow create, update, delete: if false;
+    }
+
+    match /riders/{riderId} {
+      allow read: if isAdmin() || isOwner(riderId);
+
+      allow create: if isOwner(riderId)
+        && isRider()
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.keys().hasOnly([
+          'uid',
+          'status',
+          'online',
+          'rating',
+          'vehicleType',
+          'plateNumber',
+          'licenseNumber',
+          'earnings',
+          'completedDeliveries',
+          'currentLocation',
+          'profileImage',
+          'documentUrl',
+          'lastDeliveredOrderId',
+          'updatedAt'
+        ]);
+
+      allow update: if isOwner(riderId)
+        && isRider()
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'uid',
+          'status',
+          'online',
+          'rating',
+          'vehicleType',
+          'plateNumber',
+          'licenseNumber',
+          'earnings',
+          'completedDeliveries',
+          'currentLocation',
+          'profileImage',
+          'documentUrl',
+          'lastDeliveredOrderId',
+          'updatedAt'
+        ]);
+
+      allow delete: if false;
+    }
+
+    match /tokenBlocklists/{tokenId} {
+      allow read, write: if false;
+    }
+
+    match /auditLogs/{logId} {
+      allow read: if isAdmin();
+      allow create, update, delete: if false;
+    }
+
+    match /securityLogs/{logId} {
+      allow read: if isAdmin();
+      allow create, update, delete: if false;
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
