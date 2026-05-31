@@ -1,0 +1,31 @@
+{
+  "short_name": "MotoBook",
+  "name": "MotoBook: Mobile Ordering and Delivery System",
+  "description": "A Progressive Web Application-Based Ordering and Delivery System with QR Code Payment and Thermal Receipt Printing.",
+  "icons": [
+    {
+      "src": "favicon.ico",
+      "sizes": "64x64 32x32 24x24 16x16",
+      "type": "image/x-icon"
+    },
+    {
+      "src": "logo192.png",
+      "type": "image/png",
+      "sizes": "192x192",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "logo512.png",
+      "type": "image/png",
+      "sizes": "512x512",
+      "purpose": "any maskable"
+    }
+  ],
+  "start_url": ".",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "theme_color": "#050713",
+  "background_color": "#050713",
+  "categories": ["shopping", "business", "productivity"],
+  "scope": "."
+}
